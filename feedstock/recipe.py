@@ -1,5 +1,6 @@
+import aiohttp
 import pandas as pd
-from pangeo_forge_recipes.patterns import FilePattern, ConcatDim
+from pangeo_forge_recipes.patterns import ConcatDim, FilePattern
 from pangeo_forge_recipes.recipes import XarrayZarrRecipe
 
 
@@ -9,11 +10,12 @@ def ics_wind_speed_direction(ds, fname):
     direction for the u and v components in the specified product. Dask arrays are
     created for delayed execution.
     """
+    from datetime import datetime
+
     import dask
     import dask.array as da
-    from datetime import datetime
-    from metpy.calc import wind_direction, wind_speed
     import xarray as xr
+    from metpy.calc import wind_direction, wind_speed
 
     @dask.delayed
     def delayed_metpy_fn(fn, u, v):
@@ -136,9 +138,12 @@ def make_url(time):
 # Daily products with 6-hourly values
 NITEMS_PER_FILE = 4
 
+# need to override the aiohttp timeout
+#  # https://github.com/pangeo-forge/eooffshore_ics_ccmp_v02_1_nrt_wind-feedstock/issues/2
 pattern = FilePattern(
     make_url,
     ConcatDim(name="time", keys=dates, nitems_per_file=NITEMS_PER_FILE),
+    fsspec_open_kwargs={"client_kwargs": {"timeout": aiohttp.ClientTimeout(total=1800)}},
 )
 
 target_chunks = {"time": 8000, "latitude": -1, "longitude": -1}
